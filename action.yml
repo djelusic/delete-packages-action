@@ -1,13 +1,20 @@
-name: 'Wait'
-description: 'Wait a designated number of milliseconds'
+name: 'delete-packages'
+description: 'Deletes old package versions'
 inputs:
-  milliseconds:  # id of input
-    description: 'number of milliseconds to wait'
-    required: true
-    default: '1000'
-outputs:
-  time: # output will be available to future steps
-    description: 'The message to output'
+  owner:
+    description: 'Repo owner, defaults to owner of the repo running the action'
+    required: false
+  repo:
+    description: 'Repo name, defaults to repo running the action'
+    required: false
+  keepCnt:
+    description: 'Number of package versions to keep for each major version'
+    require: false
+    default: 10
+  token:
+    description: 'GitHub token'
+    required: false
+    default: ${{ github.token }}
 runs:
   using: 'node12'
   main: 'dist/index.js'
