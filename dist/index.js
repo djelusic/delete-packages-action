@@ -64,9 +64,7 @@ async function deletePackageVersions(token, package, owner, repo, keepCnt) {
   const toDelete = [];
   for (const key in majorVersions) {
     let vs = majorVersions[key];
-    vs = vs.sort((a, b) => {
-      return a.version.localeCompare(b.version);
-    });
+    vs = vs.reverse();
     if (vs.length <= keepCnt) {
       continue
     }
