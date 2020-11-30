@@ -1,4 +1,4 @@
-const { getInput, setFailed } = require('@actions/core');
+const { getInput, setFailed, info } = require('@actions/core');
 const { context } = require('@actions/github');
 const deleteVersions = require('./delete-versions');
 
@@ -10,7 +10,12 @@ async function run() {
       keepCnt: getInput('keepCnt'),
       token: getInput('token'),
     }
-    await deleteVersions(inputs);
+    const deleted = await deleteVersions(inputs);
+    deleted.forEach(package => {
+      package.versions.forEach(v => {
+        info(`Deleted ${package.name} version ${v.version}`);
+      });
+    });
   } catch (error) {
     setFailed(error.message);
   }
