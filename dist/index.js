@@ -10,26 +10,21 @@ const queries = __webpack_require__(930);
 
 async function findAll(token, query, params, findObject, elements = [], cursor = null) {
   while (true) {
-    try {
-      let rsp = await graphql(
-        token,
-        query,
-        {
-          ...params,
-          after: cursor,
-        }
-      );
-      const obj = findObject(rsp);
-      elements.push(...obj.edges.map(edge => edge.node));
-      const pageInfo = obj.pageInfo;
-      if (!pageInfo.hasNextPage) {
-        break;
+    let rsp = await graphql(
+      token,
+      query,
+      {
+        ...params,
+        after: cursor,
       }
-      cursor = pageInfo.endCursor;
-    } catch(error) {
-      console.log(error);
+    );
+    const obj = findObject(rsp);
+    elements.push(...obj.edges.map(edge => edge.node));
+    const pageInfo = obj.pageInfo;
+    if (!pageInfo.hasNextPage) {
       break;
     }
+    cursor = pageInfo.endCursor;
   }
   return elements;
 }
@@ -77,22 +72,27 @@ async function deletePackageVersions(token, package, owner, repo, keepCnt) {
     }
     vs = vs.slice(0, vs.length - keepCnt);
     vs.forEach(v => {
-      toDelete.push(v.id);
+      toDelete.push(v);
     });
   }
 
+  const deleted = [];
   for(let i = 0; i < toDelete.length; i++) {
-    await graphql(
+    const rsp = await graphql(
       token,
       queries.deletePackageVersion,
       {
-        packageVersionId: toDelete[i],
+        packageVersionId: toDelete[i].id,
         headers: {
           Accept: 'application/vnd.github.package-deletes-preview+json',
         }
       }
     );
+    if (rsp.deletePackageVersion.success) {
+      deleted.push(toDelete[i]);
+    }
   }
+  return deleted;
 }
 
 module.exports = async function(inputs) {
@@ -109,15 +109,23 @@ module.exports = async function(inputs) {
     return !p.name.startsWith('deleted_');
   });
   
+  const deleted = [];
   for (let i = 0; i < packages.length; i++) {
-    await deletePackageVersions(
+    const vs = await deletePackageVersions(
       inputs.token,
       packages[i],
       inputs.owner,
       inputs.repo,
       inputs.keepCnt,
     );
+    if (vs.length > 0) {
+      deleted.push({
+        name: packages[i].name,
+        versions: vs,
+      });
+    }
   }
+  return deleted;
 }
 
 
@@ -146,7 +154,7 @@ module.exports = async function(
 /***/ 932:
 /***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
 
-const { getInput, setFailed } = __webpack_require__(186);
+const { getInput, setFailed, info } = __webpack_require__(186);
 const { context } = __webpack_require__(438);
 const deleteVersions = __webpack_require__(887);
 
@@ -158,7 +166,12 @@ async function run() {
       keepCnt: getInput('keepCnt'),
       token: getInput('token'),
     }
-    await deleteVersions(inputs);
+    const deleted = await deleteVersions(inputs);
+    deleted.forEach(package => {
+      package.versions.forEach(v => {
+        info(`Deleted ${package.name} version ${v.version}`);
+      });
+    });
   } catch (error) {
     setFailed(error.message);
   }
